@@ -35,8 +35,10 @@ else:
 
 fp16 = False
 def load_models(args):
-    global fp16
+    global fp16, device
     fp16 = args.fp16
+    if getattr(args, 'device', None):
+        device = torch.device(args.device)
     if not args.f0_condition:
         if args.checkpoint is None:
             dit_checkpoint_path, dit_config_path = load_custom_model_from_hf("Plachta/Seed-VC",
@@ -140,6 +142,7 @@ def load_models(args):
 
         def semantic_fn(waves_16k):
             ori_inputs = whisper_feature_extractor([waves_16k.squeeze(0).cpu().numpy()],
+                                                   sampling_rate=16000,
                                                    return_tensors="pt",
                                                    return_attention_mask=True)
             ori_input_features = whisper_model._mask_input_features(
@@ -254,8 +257,10 @@ def crossfade(chunk1, chunk2, overlap):
     return chunk2
 
 @torch.no_grad()
-def main(args):
-    model, semantic_fn, f0_fn, vocoder_fn, campplus_model, mel_fn, mel_fn_args = load_models(args)
+def main(args, loaded_models=None):
+    model, semantic_fn, f0_fn, vocoder_fn, campplus_model, mel_fn, mel_fn_args = (
+        loaded_models if loaded_models is not None else load_models(args)
+    )
     sr = mel_fn_args['sampling_rate']
     f0_condition = args.f0_condition
     auto_f0_adjust = args.auto_f0_adjust
